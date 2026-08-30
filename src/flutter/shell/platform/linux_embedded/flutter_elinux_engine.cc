@@ -6,6 +6,8 @@
 
 #include <rapidjson/document.h>
 
+#include <filesystem>
+
 #include <iostream>
 #include <sstream>
 
@@ -150,6 +152,26 @@ FlutterELinuxEngine::FlutterELinuxEngine(const FlutterProjectBundle& project)
                                            arg == "--enable-impeller=true";
                                   }) != switches.end();
 
+  // Check for a persistent cache path.
+  constexpr char kPersistentCachePath[] = "--persistent_cache_path=";
+  auto cache_arg = std::find_if(
+      switches.begin(), switches.end(), [&](const std::string& arg) {
+        return arg.rfind(kPersistentCachePath, 0) == 0;
+      });
+  if (cache_arg != switches.end()) {
+    persistent_cache_path_ =
+        cache_arg->substr(sizeof(kPersistentCachePath) - 1);
+    // The engine expects the persistent cache directory to exist.
+    std::error_code ec;
+    std::filesystem::create_directories(persistent_cache_path_, ec);
+    if (ec) {
+      ELINUX_LOG(ERROR) << "Failed to create the persistent cache directory: "
+                        << persistent_cache_path_ << " (" << ec.message()
+                        << ")";
+      persistent_cache_path_.clear();
+    }
+  }
+
   // Set up the legacy structs backing the API handles.
   messenger_ = FlutterDesktopMessengerReferenceOwner(
       FlutterDesktopMessengerAddRef(new FlutterDesktopMessenger()),
@@ -232,6 +254,10 @@ bool FlutterELinuxEngine::RunWithEntrypoint(const char* entrypoint) {
   args.struct_size = sizeof(FlutterProjectArgs);
   args.assets_path = assets_path_string.c_str();
   args.icu_data_path = icu_path_string.c_str();
+  if (!persistent_cache_path_.empty()) {
+    args.persistent_cache_path = persistent_cache_path_.c_str();
+    args.is_persistent_cache_read_only = false;
+  }
   args.command_line_argc = static_cast<int>(argv.size());
   args.command_line_argv = argv.size() > 0 ? argv.data() : nullptr;
   args.dart_entrypoint_argc = static_cast<int>(entrypoint_argv.size());

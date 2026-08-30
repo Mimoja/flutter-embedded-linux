@@ -197,6 +197,7 @@ class FlutterELinuxEngine {
   std::unique_ptr<VsyncWaiter> vsync_waiter_;
 
   bool enable_impeller_ = false;
+  std::string persistent_cache_path_;
 } SWIFT_UNSAFE_REFERENCE;
 
 }  // namespace flutter
