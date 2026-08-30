@@ -153,11 +153,50 @@ std::unique_ptr<ELinuxEGLSurface> ContextEgl::CreateOffscreenSurface(
                         << get_egl_error_cause() << ")";
   }
 #else
-  // eglCreatePbufferSurface isn't supported on both Wayland and GBM.
-  // Therefore, we neet to create a dummy wl_egl_window when we use Wayland.
-  const EGLint attribs[] = {EGL_NONE};
-  EGLSurface surface = eglCreateWindowSurface(
-      environment_->Display(), config_, window->WindowOffscreen(), attribs);
+  // Prefer a 1x1 pbuffer when the driver supports one: a dummy wl_egl_window
+  // shares the display's presentation path with the onscreen surface, and on
+  // some drivers (observed on Vivante/i.MX8) IO-thread use of that second
+  // window surface stalls the onscreen surface's presentation entirely. Fall
+  // back to the dummy wl_egl_window when pbuffers are unavailable.
+  EGLSurface surface = EGL_NO_SURFACE;
+  {
+    const EGLint pbuffer_attribs[] = {
+        // clang-format off
+        EGL_WIDTH,  1,
+        EGL_HEIGHT, 1,
+        EGL_NONE
+        // clang-format on
+    };
+    surface = eglCreatePbufferSurface(environment_->Display(), config_,
+                                      pbuffer_attribs);
+    if (surface == EGL_NO_SURFACE) {
+      // The window config may not carry EGL_PBUFFER_BIT; retry with a
+      // dedicated pbuffer-capable config.
+      const EGLint config_attribs[] = {
+          // clang-format off
+          EGL_SURFACE_TYPE,    EGL_PBUFFER_BIT,
+          EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+          EGL_RED_SIZE,        8,
+          EGL_GREEN_SIZE,      8,
+          EGL_BLUE_SIZE,       8,
+          EGL_NONE
+          // clang-format on
+      };
+      EGLConfig pbuffer_config = nullptr;
+      EGLint config_count = 0;
+      if (eglChooseConfig(environment_->Display(), config_attribs,
+                          &pbuffer_config, 1, &config_count) == EGL_TRUE &&
+          config_count > 0) {
+        surface = eglCreatePbufferSurface(environment_->Display(),
+                                          pbuffer_config, pbuffer_attribs);
+      }
+    }
+  }
+  if (surface == EGL_NO_SURFACE) {
+    const EGLint attribs[] = {EGL_NONE};
+    surface = eglCreateWindowSurface(environment_->Display(), config_,
+                                     window->WindowOffscreen(), attribs);
+  }
   if (surface == EGL_NO_SURFACE) {
     ELINUX_LOG(WARNING) << "Failed to create EGL off-screen surface." << "("
                         << get_egl_error_cause() << ")";
