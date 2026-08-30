@@ -104,6 +104,13 @@ if(FLUTTER_RELEASE)
   )
 endif()
 
+# Read engine switches from the environment in release builds.
+if(ENABLE_ENGINE_SWITCHES)
+  add_definitions(
+    -DENABLE_ENGINE_SWITCHES
+  )
+endif()
+
 # Enable logger of eLinux embedder.
 if(ENABLE_ELINUX_EMBEDDER_LOG)
   add_definitions(

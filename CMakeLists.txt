@@ -21,6 +21,7 @@ option(ENABLE_EGL_ALPHA_COMPONENT_OF_COLOR_BUFFER "Enable alpha component of the
 option(ENABLE_VSYNC "Enable embedder vsync" OFF)
 option(BUILD_ELINUX_SO "Build .so file of elinux embedder" OFF)
 option(ENABLE_ELINUX_EMBEDDER_LOG "Enable logger of eLinux embedder" ON)
+option(ENABLE_ENGINE_SWITCHES "Read engine switches from the environment in release builds" ON)
 option(FLUTTER_RELEASE "Build Flutter Engine with release mode" OFF)
 
 if(NOT BUILD_ELINUX_SO)
