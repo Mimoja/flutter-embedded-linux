@@ -4,6 +4,8 @@
 
 #include "flutter/shell/platform/linux_embedded/surface/context_egl.h"
 
+#include "flutter/shell/platform/linux_embedded/surface/gl_vivante_workarounds.h"
+
 #include "flutter/shell/platform/linux_embedded/logger.h"
 #include "flutter/shell/platform/linux_embedded/surface/egl_utils.h"
 
@@ -226,6 +228,10 @@ bool ContextEgl::ClearCurrent() const {
 
 void* ContextEgl::GlProcResolver(const char* name) const {
   auto address = eglGetProcAddress(name);
+  if (auto* workaround =
+          GlVivanteWorkaround(name, reinterpret_cast<void*>(address))) {
+    return workaround;
+  }
   if (!address) {
     ELINUX_LOG(ERROR) << "Failed eglGetProcAddress: " << name;
     return nullptr;
