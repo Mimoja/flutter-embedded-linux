@@ -92,11 +92,6 @@ if(USE_DIRTY_REGION_MANAGEMENT)
   add_definitions(-DUSE_OPENGL_DIRTY_REGION_MANAGEMENT)
 endif()
 
-# OpenGL ES version.
-if(USE_GLES3)
-  add_definitions(-DUSE_GLES3)
-endif()
-
 # Flutter embedder runtime mode.
 if(FLUTTER_RELEASE)
   add_definitions(

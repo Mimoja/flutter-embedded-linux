@@ -15,7 +15,6 @@ set_property(CACHE BACKEND_TYPE PROPERTY STRINGS "WAYLAND" "DRM-GBM" "DRM-EGLSTR
 # Disabled USE_DIRTY_REGION_MANAGEMENT due flicker issue.
 # See https://github.com/sony/flutter-embedded-linux/issues/334
 option(USE_DIRTY_REGION_MANAGEMENT "Use Flutter dirty region management" OFF)
-option(USE_GLES3 "Use OpenGL ES3 (default is OpenGL ES2)" OFF)
 option(ENABLE_EGL_ALPHA_COMPONENT_OF_COLOR_BUFFER "Enable alpha component of the EGL color buffer" ON)
  # todo: need to investigate https://github.com/sony/flutter-embedded-linux/pull/376 when enabling this option.
 option(ENABLE_VSYNC "Enable embedder vsync" OFF)

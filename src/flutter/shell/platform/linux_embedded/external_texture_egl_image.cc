@@ -39,11 +39,7 @@ bool ExternalTextureEGLImage::PopulateTexture(
   // Populate the texture object used by the engine.
   opengl_texture->target = GL_TEXTURE_2D;
   opengl_texture->name = state_->gl_texture;
-#ifdef USE_GLES3
   opengl_texture->format = GL_RGBA8;
-#else
-  opengl_texture->format = GL_RGBA8_OES;
-#endif
   opengl_texture->destruction_callback = nullptr;
   opengl_texture->user_data = nullptr;
   opengl_texture->width = width;

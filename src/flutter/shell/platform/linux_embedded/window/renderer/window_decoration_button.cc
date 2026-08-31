@@ -4,13 +4,8 @@
 
 #include "flutter/shell/platform/linux_embedded/window/renderer/window_decoration_button.h"
 
-#ifdef USE_GLES3
-#include <GLES3/gl32.h>
-#else
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#endif
 #include <EGL/egl.h>
+#include <GLES3/gl32.h>
 
 namespace flutter {
 
