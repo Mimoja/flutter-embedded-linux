@@ -268,6 +268,32 @@ void GlGetIntegervWithWorkaround(GLenum pname, GLint* data) {
   g_real_get_integerv(pname, data);
 }
 
+// Impeller attaches its combined depth+stencil renderbuffer to the separate
+// GL_DEPTH_ATTACHMENT and GL_STENCIL_ATTACHMENT points. The Vivante driver
+// leaves such framebuffers incomplete (and Impeller does not check), so every
+// offscreen pass - route transitions, save layers - renders nothing. Attach
+// to the combined GL_DEPTH_STENCIL_ATTACHMENT instead, which the driver
+// handles correctly; the second (duplicate) attach call is idempotent.
+constexpr GLenum kGlDepthAttachment = 0x8D00;
+constexpr GLenum kGlStencilAttachment = 0x8D20;
+constexpr GLenum kGlDepthStencilAttachment = 0x821A;
+
+using GlFramebufferRenderbufferProc = void (*)(GLenum, GLenum, GLenum, GLuint);
+
+GlFramebufferRenderbufferProc g_real_framebuffer_renderbuffer = nullptr;
+
+void GlFramebufferRenderbufferWithWorkaround(GLenum target,
+                                             GLenum attachment,
+                                             GLenum renderbuffertarget,
+                                             GLuint renderbuffer) {
+  if (IsVivanteRenderer() && (attachment == kGlDepthAttachment ||
+                              attachment == kGlStencilAttachment)) {
+    attachment = kGlDepthStencilAttachment;
+  }
+  g_real_framebuffer_renderbuffer(target, attachment, renderbuffertarget,
+                                  renderbuffer);
+}
+
 // Vivante only exports the core ES 3.0 instancing entry points, but the
 // engine's GLES proc table asks for the EXT-suffixed names.
 const char* CoreNameForExtProc(const char* name) {
@@ -308,6 +334,11 @@ void* GlVivanteWorkaround(const char* name, void* address) {
   if (address && std::strcmp(name, "glGetStringi") == 0) {
     g_real_get_stringi = reinterpret_cast<GlGetStringiProc>(address);
     return reinterpret_cast<void*>(GlGetStringiWithWorkaround);
+  }
+  if (address && std::strcmp(name, "glFramebufferRenderbuffer") == 0) {
+    g_real_framebuffer_renderbuffer =
+        reinterpret_cast<GlFramebufferRenderbufferProc>(address);
+    return reinterpret_cast<void*>(GlFramebufferRenderbufferWithWorkaround);
   }
   if (address && std::strcmp(name, "glGetIntegerv") == 0) {
     g_real_get_integerv = reinterpret_cast<GlGetIntegervProc>(address);
