@@ -174,6 +174,100 @@ void GlShaderSourceWithWorkaround(GLuint shader,
   g_real_shader_source(shader, count, string, length);
 }
 
+// Impeller uses GL_EXT_shader_framebuffer_fetch for advanced blends when the
+// driver advertises it, but on Vivante framebuffer fetch returns garbage when
+// rendering into renderbuffer-backed framebuffers (which the embedder uses to
+// get a working depth/stencil attachment). Hide the framebuffer-fetch
+// extensions so the engine falls back to classic blending.
+bool IsMaskedExtension(const char* name) {
+  return std::strstr(name, "shader_framebuffer_fetch") != nullptr;
+}
+
+using GlGetStringiProc = const GLubyte* (*)(GLenum, GLuint);
+using GlGetIntegervProc = void (*)(GLenum, GLint*);
+
+GlGetStringProc g_real_get_string = nullptr;
+GlGetStringiProc g_real_get_stringi = nullptr;
+GlGetIntegervProc g_real_get_integerv = nullptr;
+
+constexpr GLenum kGlExtensions = 0x1F03;
+constexpr GLenum kGlNumExtensions = 0x821D;
+
+std::vector<std::string>& FilteredExtensionList() {
+  static std::vector<std::string> list = []() {
+    std::vector<std::string> extensions;
+    if (!g_real_get_integerv) {
+      g_real_get_integerv = reinterpret_cast<GlGetIntegervProc>(
+          eglGetProcAddress("glGetIntegerv"));
+    }
+    if (!g_real_get_stringi) {
+      g_real_get_stringi =
+          reinterpret_cast<GlGetStringiProc>(eglGetProcAddress("glGetStringi"));
+    }
+    if (g_real_get_integerv && g_real_get_stringi) {
+      GLint count = 0;
+      g_real_get_integerv(kGlNumExtensions, &count);
+      for (GLint i = 0; i < count; i++) {
+        auto* name = reinterpret_cast<const char*>(
+            g_real_get_stringi(kGlExtensions, static_cast<GLuint>(i)));
+        if (name && !IsMaskedExtension(name)) {
+          extensions.emplace_back(name);
+        }
+      }
+    }
+    return extensions;
+  }();
+  return list;
+}
+
+const GLubyte* GlGetStringWithWorkaround(GLenum name) {
+  const GLubyte* result = g_real_get_string(name);
+  if (name == kGlExtensions && result && IsVivanteRenderer()) {
+    static const std::string filtered = []() {
+      std::string joined;
+      auto* all =
+          reinterpret_cast<const char*>(g_real_get_string(kGlExtensions));
+      std::string ext;
+      for (const char* p = all;; p++) {
+        if (*p == ' ' || *p == '\0') {
+          if (!ext.empty() && !IsMaskedExtension(ext.c_str())) {
+            joined += ext;
+            joined += ' ';
+          }
+          ext.clear();
+          if (*p == '\0') {
+            break;
+          }
+        } else {
+          ext += *p;
+        }
+      }
+      return joined;
+    }();
+    return reinterpret_cast<const GLubyte*>(filtered.c_str());
+  }
+  return result;
+}
+
+const GLubyte* GlGetStringiWithWorkaround(GLenum name, GLuint index) {
+  if (name == kGlExtensions && IsVivanteRenderer()) {
+    auto& list = FilteredExtensionList();
+    if (index < list.size()) {
+      return reinterpret_cast<const GLubyte*>(list[index].c_str());
+    }
+    return nullptr;
+  }
+  return g_real_get_stringi(name, index);
+}
+
+void GlGetIntegervWithWorkaround(GLenum pname, GLint* data) {
+  if (pname == kGlNumExtensions && IsVivanteRenderer()) {
+    *data = static_cast<GLint>(FilteredExtensionList().size());
+    return;
+  }
+  g_real_get_integerv(pname, data);
+}
+
 // Vivante only exports the core ES 3.0 instancing entry points, but the
 // engine's GLES proc table asks for the EXT-suffixed names.
 const char* CoreNameForExtProc(const char* name) {
@@ -206,6 +300,18 @@ void* GlVivanteWorkaround(const char* name, void* address) {
   if (address && std::strcmp(name, "glShaderSource") == 0) {
     g_real_shader_source = reinterpret_cast<GlShaderSourceProc>(address);
     return reinterpret_cast<void*>(GlShaderSourceWithWorkaround);
+  }
+  if (address && std::strcmp(name, "glGetString") == 0) {
+    g_real_get_string = reinterpret_cast<GlGetStringProc>(address);
+    return reinterpret_cast<void*>(GlGetStringWithWorkaround);
+  }
+  if (address && std::strcmp(name, "glGetStringi") == 0) {
+    g_real_get_stringi = reinterpret_cast<GlGetStringiProc>(address);
+    return reinterpret_cast<void*>(GlGetStringiWithWorkaround);
+  }
+  if (address && std::strcmp(name, "glGetIntegerv") == 0) {
+    g_real_get_integerv = reinterpret_cast<GlGetIntegervProc>(address);
+    return reinterpret_cast<void*>(GlGetIntegervWithWorkaround);
   }
   if (!address) {
     if (auto* core_name = CoreNameForExtProc(name)) {
