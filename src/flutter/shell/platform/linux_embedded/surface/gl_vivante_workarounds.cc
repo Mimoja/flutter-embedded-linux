@@ -94,6 +94,45 @@ bool IsVivanteRenderer() {
   return cached == 1;
 }
 
+// Impeller's clip pipelines use a fragment shader with an empty main() and
+// the color mask off; only their depth/stencil side effects matter. The
+// Vivante compiler treats such draws as having no side effects and culls
+// them, so clips never write the stencil mask or depth wall. Give the shader
+// an output write (masked off by glColorMask) so the draw survives.
+constexpr char kClipFragmentShader[] = R"GLSL(#version 300 es
+precision mediump float;
+precision highp int;
+
+layout(location = 0) out highp vec4 frag_color;
+
+void main()
+{
+    frag_color = vec4(0.0);
+}
+)GLSL";
+
+bool IsEmptyFragmentShader(const std::string& source) {
+  if (source.size() > 160) {
+    return false;
+  }
+  if (source.find("void main()") == std::string::npos) {
+    return false;
+  }
+  // No outputs, no builtins written: nothing between the braces of main.
+  const auto open = source.find("void main()");
+  const auto lbrace = source.find('{', open);
+  const auto rbrace = source.find('}', lbrace);
+  if (lbrace == std::string::npos || rbrace == std::string::npos) {
+    return false;
+  }
+  for (auto i = lbrace + 1; i < rbrace; i++) {
+    if (!std::isspace(static_cast<unsigned char>(source[i]))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool IsDownsampleShader(const std::string& source) {
   return source.find("uniform FragInfo") != std::string::npos &&
          source.find("float edge;") != std::string::npos &&
@@ -121,6 +160,13 @@ void GlShaderSourceWithWorkaround(GLuint shader,
       ELINUX_LOG(INFO) << "Applying Vivante loop-bound workaround to shader "
                        << shader;
       const GLchar* replacement = kDownsampleFragmentShader;
+      g_real_shader_source(shader, 1, &replacement, nullptr);
+      return;
+    }
+    if (IsEmptyFragmentShader(source)) {
+      ELINUX_LOG(INFO) << "Applying Vivante empty-shader workaround to shader "
+                       << shader;
+      const GLchar* replacement = kClipFragmentShader;
       g_real_shader_source(shader, 1, &replacement, nullptr);
       return;
     }
