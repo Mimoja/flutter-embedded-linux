@@ -63,11 +63,13 @@ ContextEgl::ContextEgl(std::unique_ptr<EnvironmentEgl> environment,
   };
 
   if (enable_impeller) {
-    // First try the MSAA configuration.
-    if ((eglChooseConfig(environment_->Display(), impeller_config_attributes,
-                         &config_, 1, &config_count) == EGL_FALSE) ||
-        (config_count == 0)) {
-      // Next fall back to disabled MSAA.
+    if (VivanteWorkaroundsEnabled(environment_->Display())) {
+      // On Vivante, Impeller renders into a client framebuffer and is
+      // blitted to the window surface on present (see SurfaceGl), so the
+      // window itself must be single-sampled: blitting into a multisample
+      // framebuffer is a GL_INVALID_OPERATION. The window's own MSAA is a
+      // silent no-op on this driver anyway.
+      WarnImpellerOnVivante();
       if ((eglChooseConfig(environment_->Display(),
                            impeller_config_attributes_no_msaa, &config_, 1,
                            &config_count) == EGL_FALSE) ||
@@ -75,6 +77,21 @@ ContextEgl::ContextEgl(std::unique_ptr<EnvironmentEgl> environment,
         ELINUX_LOG(ERROR) << "Failed to choose EGL surface config: "
                           << get_egl_error_cause();
         return;
+      }
+    } else {
+      // First try the MSAA configuration.
+      if ((eglChooseConfig(environment_->Display(), impeller_config_attributes,
+                           &config_, 1, &config_count) == EGL_FALSE) ||
+          (config_count == 0)) {
+        // Next fall back to disabled MSAA.
+        if ((eglChooseConfig(environment_->Display(),
+                             impeller_config_attributes_no_msaa, &config_, 1,
+                             &config_count) == EGL_FALSE) ||
+            (config_count == 0)) {
+          ELINUX_LOG(ERROR) << "Failed to choose EGL surface config: "
+                            << get_egl_error_cause();
+          return;
+        }
       }
     }
   } else {

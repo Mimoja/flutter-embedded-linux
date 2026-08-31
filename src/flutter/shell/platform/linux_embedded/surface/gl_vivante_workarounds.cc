@@ -398,6 +398,33 @@ bool WorkaroundsDisabled() {
 
 }  // namespace
 
+bool IsVivanteDisplay(EGLDisplay display) {
+  const char* vendor = eglQueryString(display, EGL_VENDOR);
+  return vendor &&
+         (std::strstr(vendor, "Vivante") || std::strstr(vendor, "VeriSilicon"));
+}
+
+bool VivanteWorkaroundsEnabled(EGLDisplay display) {
+  return !WorkaroundsDisabled() && IsVivanteDisplay(display);
+}
+
+void WarnImpellerOnVivante() {
+  static bool warned = false;
+  if (warned) {
+    return;
+  }
+  warned = true;
+  ELINUX_LOG(WARNING)
+      << "Impeller is running on a Vivante (VeriSilicon) GPU. This driver "
+         "has known defects (shader linker crashes, broken window-surface "
+         "depth/stencil, lazily consumed upload pointers, non-functional "
+         "MSAA) and driver workarounds are engaged: rendering goes through "
+         "an offscreen framebuffer, GPU/CPU synchronization is stricter, "
+         "and framebuffer-fetch is hidden. Visual glitches may still occur. "
+         "Set FLUTTER_ELINUX_DISABLE_GL_WORKAROUNDS=1 to disable the "
+         "workarounds (expect severe rendering corruption).";
+}
+
 void* GlVivanteWorkaround(const char* name, void* address) {
   if (WorkaroundsDisabled() || !name) {
     return nullptr;

@@ -5,7 +5,21 @@
 #ifndef FLUTTER_SHELL_PLATFORM_LINUX_EMBEDDED_SURFACE_GL_VIVANTE_WORKAROUNDS_H_
 #define FLUTTER_SHELL_PLATFORM_LINUX_EMBEDDED_SURFACE_GL_VIVANTE_WORKAROUNDS_H_
 
+#include <EGL/egl.h>
+
 namespace flutter {
+
+// True when |display| is driven by a Vivante (VeriSilicon) GPU. Uses the EGL
+// vendor string, so it works before any GL context exists.
+bool IsVivanteDisplay(EGLDisplay display);
+
+// True when the Vivante workarounds should be applied for |display|:
+// a Vivante GPU and FLUTTER_ELINUX_DISABLE_GL_WORKAROUNDS is not set.
+bool VivanteWorkaroundsEnabled(EGLDisplay display);
+
+// Emits a one-time, prominent warning that Impeller is running on a Vivante
+// GPU with driver workarounds engaged.
+void WarnImpellerOnVivante();
 
 // Works around Vivante (VeriSilicon) GLES driver bugs that break Impeller.
 //
