@@ -174,6 +174,21 @@ void GlShaderSourceWithWorkaround(GLuint shader,
   g_real_shader_source(shader, count, string, length);
 }
 
+// Vivante only exports the core ES 3.0 instancing entry points, but the
+// engine's GLES proc table asks for the EXT-suffixed names.
+const char* CoreNameForExtProc(const char* name) {
+  if (std::strcmp(name, "glDrawArraysInstancedEXT") == 0) {
+    return "glDrawArraysInstanced";
+  }
+  if (std::strcmp(name, "glDrawElementsInstancedEXT") == 0) {
+    return "glDrawElementsInstanced";
+  }
+  if (std::strcmp(name, "glVertexAttribDivisorEXT") == 0) {
+    return "glVertexAttribDivisor";
+  }
+  return nullptr;
+}
+
 bool WorkaroundsDisabled() {
   static const bool disabled = []() {
     auto* value = std::getenv("FLUTTER_ELINUX_DISABLE_GL_WORKAROUNDS");
@@ -191,6 +206,15 @@ void* GlVivanteWorkaround(const char* name, void* address) {
   if (address && std::strcmp(name, "glShaderSource") == 0) {
     g_real_shader_source = reinterpret_cast<GlShaderSourceProc>(address);
     return reinterpret_cast<void*>(GlShaderSourceWithWorkaround);
+  }
+  if (!address) {
+    if (auto* core_name = CoreNameForExtProc(name)) {
+      auto core = eglGetProcAddress(core_name);
+      if (core) {
+        ELINUX_LOG(INFO) << "Forwarding " << name << " to " << core_name;
+        return reinterpret_cast<void*>(core);
+      }
+    }
   }
   return nullptr;
 }

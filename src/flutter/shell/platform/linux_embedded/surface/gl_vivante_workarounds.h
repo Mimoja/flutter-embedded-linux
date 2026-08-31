@@ -15,6 +15,9 @@ namespace flutter {
 //    come from uniforms (Impeller's texture_downsample.frag) are rewritten
 //    with compile-time-bounded loops. The Vivante shader linker (libVSC)
 //    segfaults on the original pattern.
+//  - The glDrawArraysInstancedEXT / glDrawElementsInstancedEXT /
+//    glVertexAttribDivisorEXT names, which Vivante does not export, are
+//    forwarded to their core OpenGL ES 3.0 equivalents.
 //
 // The wrappers only alter behavior when the current GL_RENDERER reports a
 // Vivante GPU. Set FLUTTER_ELINUX_DISABLE_GL_WORKAROUNDS=1 to turn this off.
