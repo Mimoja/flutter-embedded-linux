@@ -39,6 +39,26 @@ class SurfaceGl final : public SurfaceBase, public SurfaceGlDelegate {
 
   // |SurfaceGlDelegate|
   void* GlProcResolver(const char* name) const override;
+
+ private:
+  // Impeller needs a working depth/stencil attachment, but some GLES drivers
+  // (e.g. Vivante on i.MX8) have broken depth buffers on window surfaces.
+  // Render into a client framebuffer with real renderbuffers instead and
+  // blit to the window surface on present. Returns 0 (the window surface)
+  // when Impeller is off or the framebuffer could not be created.
+  uint32_t EnsureOffscreenFramebuffer() const;
+  void DestroyOffscreenFramebuffer() const;
+  void BlitOffscreenFramebuffer() const;
+
+  mutable uint32_t fbo_ = 0;
+  mutable uint32_t color_rb_ = 0;
+  mutable uint32_t depth_stencil_rb_ = 0;
+  mutable uint32_t resolve_fbo_ = 0;
+  mutable uint32_t resolve_rb_ = 0;
+  mutable bool multisampled_ = false;
+  mutable int fbo_width_ = 0;
+  mutable int fbo_height_ = 0;
+  mutable bool fbo_failed_ = false;
 };
 
 }  // namespace flutter

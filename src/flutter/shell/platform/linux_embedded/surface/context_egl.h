@@ -34,10 +34,13 @@ class ContextEgl {
 
   void* GlProcResolver(const char* name) const;
 
+  bool EnableImpeller() const { return enable_impeller_; }
+
   EGLint GetAttrib(EGLint attribute);
 
  protected:
   std::unique_ptr<EnvironmentEgl> environment_;
+  bool enable_impeller_ = false;
   EGLConfig config_;
   EGLContext context_;
   EGLContext resource_context_;

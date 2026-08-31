@@ -14,7 +14,9 @@ namespace flutter {
 ContextEgl::ContextEgl(std::unique_ptr<EnvironmentEgl> environment,
                        bool enable_impeller,
                        EGLint egl_surface_type)
-    : environment_(std::move(environment)), config_(nullptr) {
+    : environment_(std::move(environment)),
+      enable_impeller_(enable_impeller),
+      config_(nullptr) {
   EGLint config_count = 0;
   const EGLint attribs[] = {
       // clang-format off
