@@ -14,6 +14,17 @@ If you develop flutter apps for eLinux, use [flutter-elinux](https://github.com/
 - [flutter-embedded-linux](https://github.com/flutter-elinux/flutter-embedded-linux): eLinux embedding for Flutter
 - [meta-flutter](https://github.com/flutter-elinux/meta-flutter): Yocto recipes of eLinux embedding for Flutter
 
+## Breaking change: switching to Impeller
+
+The embedder is switching to the [Impeller](https://docs.flutter.dev/perf/impeller) renderer and now always creates an OpenGL ES 3.0 context: the `USE_GLES3` CMake option is gone and devices whose GLES driver only supports OpenGL ES 2.0 are no longer supported.
+
+Impeller is selected per application through the embedder configuration instead of the removed `--enable-impeller` engine switch:
+
+- C++ client wrapper: call `project.set_enable_impeller(true)` on your `flutter::DartProject` in `main.cc`.
+- Embedder C API: set `enable_impeller = true` in `FlutterDesktopEngineProperties`.
+
+Existing applications keep rendering with Skia until they opt in; the examples in this repository and newly created flutter-elinux projects enable Impeller by default.
+
 ## Objective & Goal
 Our objective is to use Flutter in embedded systems. We're developing this embedder to use Flutter in embedded products. Ultimately we would like to propose and contribute this software to the mainline of [Flutter Engine](https://github.com/flutter/engine), which means we would like to add an embedded systems version into the Flutter repo for all embedded developers. Please note that this is just our ideal, not the official opinion of the Flutter community.
 
