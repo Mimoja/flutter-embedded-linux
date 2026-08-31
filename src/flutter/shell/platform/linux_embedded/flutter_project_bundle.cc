@@ -33,6 +33,7 @@ FlutterProjectBundle::FlutterProjectBundle(
   } else {
     aot_library_path_ = "";
   }
+  enable_impeller_ = properties.enable_impeller;
 
   for (int i = 0; i < properties.dart_entrypoint_argc; i++) {
     dart_entrypoint_arguments_.push_back(

@@ -46,6 +46,10 @@ typedef struct {
   // it will be ignored in that case.
   const wchar_t* aot_library_path;
 
+  // Whether to render with the Impeller renderer instead of Skia. Defaults
+  // to false so existing applications keep their current renderer.
+  bool enable_impeller;
+
   // Number of elements in the array passed in as dart_entrypoint_argv.
   int dart_entrypoint_argc;
 

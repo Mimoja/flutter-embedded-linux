@@ -16,6 +16,7 @@ FlutterEngine::FlutterEngine(const DartProject& project) {
   c_engine_properties.assets_path = project.assets_path().c_str();
   c_engine_properties.icu_data_path = project.icu_data_path().c_str();
   c_engine_properties.aot_library_path = project.aot_library_path().c_str();
+  c_engine_properties.enable_impeller = project.enable_impeller();
 
   const std::vector<std::string>& entrypoint_args =
       project.dart_entrypoint_arguments();

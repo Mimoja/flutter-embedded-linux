@@ -130,7 +130,7 @@ class FlutterELinuxEngine {
                uint64_t vsync_interval_time_nanos);
 
   // Gets the status whether Impeller is enabled.
-  bool IsImpellerEnabled() const { return enable_impeller_; }
+  bool IsImpellerEnabled() const { return project_->enable_impeller(); }
 
   // Sets system settings.
   void SetSystemSettings(float text_scaling_factor, bool enable_high_contrast);
@@ -196,7 +196,6 @@ class FlutterELinuxEngine {
   // The vsync waiter.
   std::unique_ptr<VsyncWaiter> vsync_waiter_;
 
-  bool enable_impeller_ = false;
 } SWIFT_UNSAFE_REFERENCE;
 
 }  // namespace flutter

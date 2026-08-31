@@ -41,6 +41,9 @@ class DartProject {
     return dart_entrypoint_arguments_;
   }
 
+  // Sets whether the Impeller renderer is used. Defaults to off.
+  void set_enable_impeller(bool enable) { enable_impeller_ = enable; }
+
  private:
   // Accessors for internals are private, so that they can be changed if more
   // flexible options for project structures are needed later without it
@@ -53,6 +56,7 @@ class DartProject {
   const std::wstring& assets_path() const { return assets_path_; }
   const std::wstring& icu_data_path() const { return icu_data_path_; }
   const std::wstring& aot_library_path() const { return aot_library_path_; }
+  bool enable_impeller() const { return enable_impeller_; }
 
   // The path to the assets directory.
   std::wstring assets_path_;
@@ -61,6 +65,8 @@ class DartProject {
   // The path to the AOT library. This will always return a path, but non-AOT
   // builds will not be expected to actually have a library at that path.
   std::wstring aot_library_path_;
+  // Whether the Impeller renderer is enabled.
+  bool enable_impeller_ = false;
   // The list of arguments to pass through to the Dart entrypoint.
   std::vector<std::string> dart_entrypoint_arguments_;
 };

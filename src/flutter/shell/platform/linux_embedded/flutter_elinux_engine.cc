@@ -142,14 +142,6 @@ FlutterELinuxEngine::FlutterELinuxEngine(const FlutterProjectBundle& project)
         }
       });
 
-  // Check for impeller support.
-  auto& switches = project_->GetSwitches();
-  enable_impeller_ = std::find_if(switches.begin(), switches.end(),
-                                  [](const std::string& arg) {
-                                    return arg == "--enable-impeller" ||
-                                           arg == "--enable-impeller=true";
-                                  }) != switches.end();
-
   // Set up the legacy structs backing the API handles.
   messenger_ = FlutterDesktopMessengerReferenceOwner(
       FlutterDesktopMessengerAddRef(new FlutterDesktopMessenger()),
@@ -197,6 +189,10 @@ bool FlutterELinuxEngine::RunWithEntrypoint(const char* entrypoint) {
   // flags the first item is treated as the executable and ignored. Add a dummy
   // value so that all provided arguments are used.
   std::vector<std::string> switches = project_->GetSwitches();
+  // The engine defaults to Skia; Impeller is requested through its switch.
+  if (project_->enable_impeller()) {
+    switches.push_back("--enable-impeller");
+  }
   std::vector<const char*> argv = {"placeholder"};
   std::transform(
       switches.begin(), switches.end(), std::back_inserter(argv),
