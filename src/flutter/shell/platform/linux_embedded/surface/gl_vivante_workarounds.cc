@@ -268,6 +268,85 @@ void GlGetIntegervWithWorkaround(GLenum pname, GLint* data) {
   g_real_get_integerv(pname, data);
 }
 
+// The Vivante driver lets a glBufferData/glBufferSubData re-specification
+// race the GPU's reads of the previous contents, which corrupts Impeller's
+// per-frame vertex data (the engine orphans one big vertex buffer each
+// frame). Serialize the pipeline before the buffer is re-specified.
+using GlBufferDataProc = void (*)(GLenum, long, const void*, GLenum);
+using GlFinishProc = void (*)(void);
+
+GlBufferDataProc g_real_buffer_data = nullptr;
+GlFinishProc g_real_finish = nullptr;
+
+using GlBufferSubDataProc = void (*)(GLenum, long, long, const void*);
+
+GlBufferSubDataProc g_real_buffer_sub_data = nullptr;
+
+void GlSerializeGpu() {
+  if (!g_real_finish) {
+    g_real_finish =
+        reinterpret_cast<GlFinishProc>(eglGetProcAddress("glFinish"));
+  }
+  if (g_real_finish) {
+    g_real_finish();
+  }
+}
+
+void GlBufferDataWithWorkaround(GLenum target,
+                                long size,
+                                const void* data,
+                                GLenum usage) {
+  if (IsVivanteRenderer()) {
+    GlSerializeGpu();
+  }
+  g_real_buffer_data(target, size, data, usage);
+}
+
+// The driver also appears to consume the user pointer passed to
+// glBufferSubData lazily instead of copying it during the call. Impeller
+// recycles its staging memory right after the call, so freshly built screens
+// come up half-rendered from clobbered vertex data until they are drawn
+// again. A barrier after the call forces the copy; writes are a few per
+// frame, so this is cheap.
+void GlBufferSubDataWithWorkaround(GLenum target,
+                                   long offset,
+                                   long size,
+                                   const void* data) {
+  g_real_buffer_sub_data(target, offset, size, data);
+  if (IsVivanteRenderer()) {
+    GlSerializeGpu();
+  }
+}
+
+using GlTexSubImage2DProc = void (*)(GLenum,
+                                     GLint,
+                                     GLint,
+                                     GLint,
+                                     GLsizei,
+                                     GLsizei,
+                                     GLenum,
+                                     GLenum,
+                                     const void*);
+
+GlTexSubImage2DProc g_real_tex_sub_image_2d = nullptr;
+
+// Texture uploads take the same lazily-consumed user pointer path.
+void GlTexSubImage2DWithWorkaround(GLenum target,
+                                   GLint level,
+                                   GLint xoffset,
+                                   GLint yoffset,
+                                   GLsizei width,
+                                   GLsizei height,
+                                   GLenum format,
+                                   GLenum type,
+                                   const void* data) {
+  g_real_tex_sub_image_2d(target, level, xoffset, yoffset, width, height,
+                          format, type, data);
+  if (IsVivanteRenderer()) {
+    GlSerializeGpu();
+  }
+}
+
 // Impeller attaches its combined depth+stencil renderbuffer to the separate
 // GL_DEPTH_ATTACHMENT and GL_STENCIL_ATTACHMENT points. The Vivante driver
 // leaves such framebuffers incomplete (and Impeller does not check), so every
@@ -335,10 +414,22 @@ void* GlVivanteWorkaround(const char* name, void* address) {
     g_real_get_stringi = reinterpret_cast<GlGetStringiProc>(address);
     return reinterpret_cast<void*>(GlGetStringiWithWorkaround);
   }
+  if (address && std::strcmp(name, "glBufferSubData") == 0) {
+    g_real_buffer_sub_data = reinterpret_cast<GlBufferSubDataProc>(address);
+    return reinterpret_cast<void*>(GlBufferSubDataWithWorkaround);
+  }
+  if (address && std::strcmp(name, "glTexSubImage2D") == 0) {
+    g_real_tex_sub_image_2d = reinterpret_cast<GlTexSubImage2DProc>(address);
+    return reinterpret_cast<void*>(GlTexSubImage2DWithWorkaround);
+  }
   if (address && std::strcmp(name, "glFramebufferRenderbuffer") == 0) {
     g_real_framebuffer_renderbuffer =
         reinterpret_cast<GlFramebufferRenderbufferProc>(address);
     return reinterpret_cast<void*>(GlFramebufferRenderbufferWithWorkaround);
+  }
+  if (address && std::strcmp(name, "glBufferData") == 0) {
+    g_real_buffer_data = reinterpret_cast<GlBufferDataProc>(address);
+    return reinterpret_cast<void*>(GlBufferDataWithWorkaround);
   }
   if (address && std::strcmp(name, "glGetIntegerv") == 0) {
     g_real_get_integerv = reinterpret_cast<GlGetIntegervProc>(address);
