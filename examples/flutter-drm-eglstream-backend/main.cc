@@ -24,6 +24,7 @@ int main(int argc, char** argv) {
   flutter::DartProject project(fl_path);
   auto command_line_arguments = std::vector<std::string>();
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
+  project.set_enable_impeller(true);
 
   flutter::FlutterViewController::ViewProperties view_properties = {};
   view_properties.width = options.WindowWidth();
